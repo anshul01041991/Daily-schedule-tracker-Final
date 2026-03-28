@@ -470,31 +470,61 @@ function setAlarm(tid, dk){
   }
 
   const task = TASKS.find(t=>t.id===tid);
-  const label = encodeURIComponent((task ? task.name : 'Study time').slice(0,30));
-
+  const taskName = (task ? task.name : 'Study time').slice(0,30);
+  const label = encodeURIComponent(taskName);
   const nextDay = tb.start.startsWith('n');
   const clean = nextDay ? tb.start.slice(1) : tb.start;
   const [h, m] = clean.split(':').map(Number);
+  const timeStr = fmt12(tb.start);
+  const h12 = h > 12 ? h-12 : (h===0?12:h);
+  const mm = String(m).padStart(2,'0');
+  const ampm = h < 12 ? 'AM' : 'PM';
 
-  // Build multiple fallback links
-  const intentUrl = `intent://alarm?hour=${h}&minutes=${m}&message=${label}&vibrate=true&skip_ui=false#Intent;action=android.intent.action.SET_ALARM;end`;
-  const alarmUrl  = `alarm://${h}:${String(m).padStart(2,'0')}`;
+  if(btn){ btn.textContent=`Alarm: ${timeStr}`; btn.classList.add('active'); }
 
-  // Update button
-  if(btn){ btn.textContent = `Alarm set · ${fmt12(tb.start)}`; btn.classList.add('active'); }
+  // Vivo specific package names to try
+  const vivoPackages = [
+    'com.vivo.alarmclock',
+    'com.bbk.facemgr',
+    'com.android.deskclock',
+    'com.vivo.deskclock',
+  ];
 
-  // Show tappable alarm links
+  // Build intent URLs for each Vivo package
+  const intentLinks = vivoPackages.map(pkg=>
+    `intent://alarm?hour=${h}&minutes=${m}&message=${label}&vibrate=true&skip_ui=false` +
+    `#Intent;action=android.intent.action.SET_ALARM;package=${pkg};end`
+  );
+
   if(statusEl){
     statusEl.innerHTML = `
-      <div style="margin-top:6px;display:flex;flex-direction:column;gap:8px">
-        <a href="${intentUrl}" style="display:block;padding:9px 14px;background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;color:var(--green);font-size:13px;font-weight:500;text-align:center;text-decoration:none">
-          Open Clock app (tap this)
-        </a>
-        <a href="intent:#Intent;action=android.intent.action.SHOW_ALARMS;end" style="display:block;padding:8px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:12px;text-align:center;text-decoration:none">
-          Or open Clock app manually
-        </a>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:7px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Tap each link until Clock app opens:</div>
+        ${intentLinks.map((url,i)=>`
+          <a href="${url}" style="display:block;padding:9px 14px;background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;color:var(--green);font-size:12px;font-weight:500;text-align:center;text-decoration:none">
+            Try option ${i+1}
+          </a>`).join('')}
+        <div style="margin-top:4px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">If none work — set manually:</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-family:'DM Mono',monospace;font-size:16px;font-weight:600;color:var(--text)">${h12}:${mm} ${ampm}</span>
+            <button onclick="copyToClip('${h12}:${mm} ${ampm}')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--muted);font-size:11px;cursor:pointer">Copy time</button>
+          </div>
+        </div>
       </div>`;
   }
+}
+
+function copyToClip(text){
+  navigator.clipboard.writeText(text).then(()=>{
+    const btns = document.querySelectorAll('[onclick^="copyToClip"]');
+    btns.forEach(b=>{
+      if(b.getAttribute('onclick').includes(text)){
+        b.textContent='Copied!'; b.style.color='var(--green)';
+        setTimeout(()=>{ b.textContent='Copy time'; b.style.color=''; },1500);
+      }
+    });
+  }).catch(()=>{ prompt('Copy this:',text); });
 }
 
 // ── RENDER WEEK ───────────────────────────────────────────────────────────
