@@ -461,33 +461,40 @@ function updateNotes(tid,dk,ta){
 // ── ALARM ─────────────────────────────────────────────────────────────────
 function setAlarm(tid, dk){
   const tb = (gs()[tbtsk(tid,dk)])||{};
+  const statusEl = document.getElementById('remstatus_'+tid+'_'+dk);
+  const btn = document.getElementById('rembtn_'+tid+'_'+dk);
+
   if(!tb.start){
-    const el = document.getElementById('remstatus_'+tid+'_'+dk);
-    if(el) el.textContent = 'Please set a start time first.';
+    if(statusEl) statusEl.textContent = 'Please set a start time first.';
     return;
   }
 
   const task = TASKS.find(t=>t.id===tid);
   const label = encodeURIComponent((task ? task.name : 'Study time').slice(0,30));
 
-  // Parse time value (handle next-day n prefix)
   const nextDay = tb.start.startsWith('n');
   const clean = nextDay ? tb.start.slice(1) : tb.start;
   const [h, m] = clean.split(':').map(Number);
 
-  // Android Clock intent — opens default clock app on any Android
-  const intentUrl =
-    `intent://alarm?hour=${h}&minutes=${m}&message=${label}&vibrate=true&skip_ui=false` +
-    `#Intent;action=android.intent.action.SET_ALARM;end`;
+  // Build multiple fallback links
+  const intentUrl = `intent://alarm?hour=${h}&minutes=${m}&message=${label}&vibrate=true&skip_ui=false#Intent;action=android.intent.action.SET_ALARM;end`;
+  const alarmUrl  = `alarm://${h}:${String(m).padStart(2,'0')}`;
 
-  // Update status before opening
-  const statusEl = document.getElementById('remstatus_'+tid+'_'+dk);
-  if(statusEl) statusEl.textContent = `Opening Clock app for ${fmt12(tb.start)}…`;
-
-  const btn = document.getElementById('rembtn_'+tid+'_'+dk);
+  // Update button
   if(btn){ btn.textContent = `Alarm set · ${fmt12(tb.start)}`; btn.classList.add('active'); }
 
-  window.location.href = intentUrl;
+  // Show tappable alarm links
+  if(statusEl){
+    statusEl.innerHTML = `
+      <div style="margin-top:6px;display:flex;flex-direction:column;gap:8px">
+        <a href="${intentUrl}" style="display:block;padding:9px 14px;background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;color:var(--green);font-size:13px;font-weight:500;text-align:center;text-decoration:none">
+          Open Clock app (tap this)
+        </a>
+        <a href="intent:#Intent;action=android.intent.action.SHOW_ALARMS;end" style="display:block;padding:8px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--muted);font-size:12px;text-align:center;text-decoration:none">
+          Or open Clock app manually
+        </a>
+      </div>`;
+  }
 }
 
 // ── RENDER WEEK ───────────────────────────────────────────────────────────
